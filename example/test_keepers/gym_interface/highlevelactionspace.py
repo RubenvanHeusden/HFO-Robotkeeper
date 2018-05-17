@@ -1,7 +1,7 @@
-from actionset import ActionSet
+from actionspace import ActionSpace
 import hfo
 
-class HighLevelActionSet(ActionSet):
+class HighLevelActionSpace(ActionSpace):
     def __init__(self):
-        ActionSet.__init__(self, action_set="high_level")
+        ActionSpace.__init__(self, action_set="high_level")
         self._action_list =  [tuple([hfo.REDUCE_ANGLE_TO_GOAL]), tuple([hfo.INTERCEPT]), tuple([hfo.NOOP])]

@@ -1,6 +1,6 @@
 import hfo
 import random
-class ActionSet:
+class ActionSpace:
                 
     def __init__(self, action_set):
         self._action_set = action_set

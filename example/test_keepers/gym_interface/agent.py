@@ -31,7 +31,7 @@ class Agent:
         self.env.act(*self.action_set[action])
         status = self.env.step()
         if status == hfo.SERVER_DOWN:
-            env.act(hfo.QUIT)
+            self.env.act(hfo.QUIT)
             exit()
         new_state = self.env.getState()
         observation = self.state_space.get_state(new_state)

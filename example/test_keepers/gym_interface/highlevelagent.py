@@ -1,5 +1,5 @@
 from agent import Agent
-from highlevelactionset import HighLevelActionSet
+from highlevelactionspace import HighLevelActionSpace
 import hfo
 import helper
 from statespace import StateSpace
@@ -7,7 +7,7 @@ from rewardfetcher import RewardFetcher
 
 class HighLevelAgent(Agent):
     def __init__(self, envir=hfo.HFOEnvironment(), action_set="high_level",seed=123):
-        Agent.__init__(self,env=envir, agent_type="high_level_agent", action_set=HighLevelActionSet(), 
+        Agent.__init__(self,env=envir, agent_type="high_level_agent", action_set=HighLevelActionSpace(), 
         state_space=StateSpace(500), feature_set=hfo.HIGH_LEVEL_FEATURE_SET, port=6000,base="base_right", goalie=True)
         self.seed = seed        
 

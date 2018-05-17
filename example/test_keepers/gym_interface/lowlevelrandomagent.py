@@ -1,5 +1,5 @@
 from agent import Agent
-from lowlevelactionset import LowLevelActionSet
+from lowlevelactionspace import LowLevelActionSpace
 import hfo
 import helper
 from statespace import StateSpace

@@ -3,6 +3,14 @@ import hfo
 from statespace import StateSpace
 from rewardfetcher import RewardFetcher
 
+''' 
+This file contains the Agent class that is used in the goalkeeper experiments.
+This implementation aims to function as a bridge between the HFO functions
+and the openaigym implementation, so that it the methods conform to the function
+and return values that the openaigym environment have.
+'''
+
+
 class Agent:
     def connect(self, env, feature_set, port, base, goalie):
         env.connectToServer(feature_set,

@@ -34,6 +34,14 @@ class Agent:
         features = self.env.getState()
         observation = self.state_space.get_state(features)
         return observation
+   
+    def getState(self):
+        return self.env.getState()
+       
+    def getStateSize(self):
+        return self.env.getStateSize()
+   
+   
     
     def step(self, action):
         self.env.act(*self.action_set[action])
@@ -42,11 +50,10 @@ class Agent:
             self.env.act(hfo.QUIT)
             exit()
         new_state = self.env.getState()
-        observation = self.state_space.get_state(new_state)
         reward = self.reward_fetcher.reward(new_state, status)
         done = not (status == hfo.IN_GAME)
    
-        return observation, reward, done
+        return new_state, reward, done
    
     def __str__(self):
         return "%s using %s" %(self.agent_type, self.action_set)

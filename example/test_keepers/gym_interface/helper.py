@@ -64,10 +64,44 @@ def angle_feature(features):
 
 
 
-def advanced_ball_feature(features):
-    opp_ball_dist = euclid_dist()
 
 
+def build_feature_vector(features):
+    
+    vec = np.zeros((15, 1))
+
+    # agent's x pos
+    vec[0] = features[0]
+    # agent's y pos
+    vec[1] = features[1]
+    # global direction of the agent
+    vec[2] = features[2]
+    # ball x pos
+    vec[3] = features[3]
+    # ball y pos
+    vec[4] = features[4]
+    # proximity of agent to goal
+    vec[5] = features[6]
+    # angle from agent to goal centre
+    vec[6] = features[7]
+    # proximity of agent to opponent
+    vec[7] = features[9]
+    # x pos of opponent
+    vec[8] = features[10]
+    # y pos of opponent
+    vec[9] = features[11]
+    # 
+    vec[10] = 0
+    #
+    vec[11] = 0
+    #
+    vec[12] = 0
+    #
+    vec[13] = 0
+    #
+    vec[14] = 0
+    
+    return vec
 
 
 

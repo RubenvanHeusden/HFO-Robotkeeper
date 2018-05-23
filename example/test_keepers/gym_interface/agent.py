@@ -2,6 +2,7 @@ from actionset import ActionSet
 import hfo
 from statespace import StateSpace
 from rewardfetcher import RewardFetcher
+import numpy as np
 
 ''' 
 This file contains the Agent class that is used in the goalkeeper experiments.
@@ -34,9 +35,6 @@ class Agent:
         features = self.env.getState()
         observation = self.state_space.get_state(features)
         return observation
-   
-    def getState(self):
-        return self.env.getState()
        
     def getStateSize(self):
         return self.env.getStateSize()
@@ -49,8 +47,9 @@ class Agent:
         if status == hfo.SERVER_DOWN:
             self.env.act(hfo.QUIT)
             exit()
-        new_state = self.env.getState()
-        reward = self.reward_fetcher.reward(new_state, status)
+        features = self.env.getState()
+        new_state = self.state_space.get_state(features)
+        reward = self.reward_fetcher.reward(features, status)
         done = not (status == hfo.IN_GAME)
    
         return new_state, reward, done

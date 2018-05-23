@@ -2,13 +2,13 @@ from agent import Agent
 from lowlevelactionspace import LowLevelActionSpace
 import hfo
 import helper
-from statespace import StateSpace
+from neuralstatespace import NeuralStateSpace
 from rewardfetcher import RewardFetcher
 
 class LowLevelRandomAgent(Agent):
     def __init__(self, envir=hfo.HFOEnvironment(), action_set="low_level",seed=123):
         Agent.__init__(self,env=envir, agent_type="low_level_random_agent", action_set=LowLevelActionSpace(), 
-        state_space=StateSpace(100), feature_set=hfo.HIGH_LEVEL_FEATURE_SET, port=6000,base="base_right", goalie=True)
+        state_space=NeuralStateSpace(), feature_set=hfo.LOW_LEVEL_FEATURE_SET, port=6000,base="base_right", goalie=True)
         self.seed = seed        
 
 

@@ -7,7 +7,7 @@ from rewardfetcher import RewardFetcher
 
 class LowLevelRandomAgent(Agent):
     def __init__(self, envir=hfo.HFOEnvironment(), action_set="low_level",seed=123):
-        Agent.__init__(self,env=envir, agent_type="low_level_random_agent", action_set=LowLevelActionSpace(), 
+        Agent.__init__(self,env=envir, agent_type="low_level_random_agent", action_space=LowLevelActionSpace(), 
         state_space=NeuralStateSpace(), feature_set=hfo.LOW_LEVEL_FEATURE_SET, port=6000,base="base_right", goalie=True)
         self.seed = seed        
 

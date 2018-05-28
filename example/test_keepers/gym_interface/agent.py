@@ -3,6 +3,7 @@ import hfo
 from statespace import StateSpace
 from rewardfetcher import RewardFetcher
 import numpy as np
+from logger import Logger
 
 ''' 
 This file contains the Agent class that is used in the goalkeeper experiments.
@@ -19,13 +20,17 @@ class Agent:
                       'localhost', base, goalie)
         
     
-    def __init__(self, env, agent_type, action_set, state_space, feature_set, port, base, goalie):
+    def __init__(self, env, agent_type, action_space, state_space, feature_set, port, base, goalie, logging=True):
         self.agent_type = agent_type
         self.env = env
-        self.action_set = action_set
+        self.action_space = action_space
         self.connect(env, feature_set, port, base, goalie)
         self.state_space = state_space
         self.reward_fetcher = RewardFetcher()
+        self.logging = logging
+        if self.logging:
+           self.logger = Logger("stats.bin")
+        self.captures = 0.0
         
     def episode(self):
         """function handle to be overridden by subclassess"""
@@ -42,7 +47,7 @@ class Agent:
    
     
     def step(self, action):
-        self.env.act(*self.action_set[action])
+        self.env.act(*self.action_space[action])
         status = self.env.step()
         if status == hfo.SERVER_DOWN:
             self.env.act(hfo.QUIT)
@@ -51,8 +56,12 @@ class Agent:
         new_state = self.state_space.get_state(features)
         reward = self.reward_fetcher.reward(features, status)
         done = not (status == hfo.IN_GAME)
-   
+        if self.logging:
+           if done:
+		       if status == hfo.CAPTURED_BY_DEFENSE:
+		          self.captures+=1.0
+		       self.logger.log(self.captures)
         return new_state, reward, done
    
     def __str__(self):
-        return "%s using %s" %(self.agent_type, self.action_set)
+        return "%s using %s" %(self.agent_type, self.action_space)

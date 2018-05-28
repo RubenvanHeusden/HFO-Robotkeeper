@@ -16,10 +16,10 @@ class RewardFetcher:
             return 250
         
         else:
-
-            return state[53]*100 + -state[60]
+            sin, cos = state[51:53]
+            return (cos*10-0.5) + (1-abs(sin)-0.5)*10
             # is now a row vector !!!
             #return (state[9])*10
     
-    
+
     

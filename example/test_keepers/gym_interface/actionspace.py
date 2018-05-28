@@ -5,6 +5,7 @@ class ActionSpace:
     def __init__(self, action_set):
         self._action_set = action_set
         self._action_list = []
+        self.n = len(self._action_list)
         
     def __len__(self):
         return len(self._action_list)
@@ -17,3 +18,5 @@ class ActionSpace:
     
     def __str__(self):
         return "action set" %self._action_set
+        
+        

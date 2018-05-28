@@ -13,6 +13,7 @@ class QNetwork:
         
         self._gauss_init = tf.truncated_normal_initializer(mean=0.0, stddev=0.01, dtype=tf.float64)
 
+
         self.inputs = tf.placeholder(shape = [None, input_size],dtype=tf.float64)
        
         self.layer1 = tf.layers.dense(self.inputs, kernel_initializer= self._gauss_init,

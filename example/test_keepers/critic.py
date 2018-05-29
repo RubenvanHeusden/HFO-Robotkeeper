@@ -17,7 +17,8 @@ class Critic:
         
         self._kernel_init = tf.truncated_normal_initializer(mean=0.0, stddev=0.01, dtype=tf.float64)
         
-        # input consists of both the state S and the action A
+        
+        # input consists of 
         self.input_layer = tf.placeholder(shape=[None, num_inputs], dtype=tf.float64)
         
         self._layer1 = tf.layers.dense(inputs = self.input_layer, 

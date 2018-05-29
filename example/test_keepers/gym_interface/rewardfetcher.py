@@ -5,7 +5,8 @@ class RewardFetcher:
     
     
     def __init__(self):
-        self.norm = math.sqrt((68)**2+(52.5)**2)
+        #self.norm = math.sqrt((68)**2+(52.5)**2)
+        pass
         
     def reward(self, state, status):
         if status == hfo.GOAL:
@@ -17,7 +18,7 @@ class RewardFetcher:
         
         else:
             sin, cos = state[51:53]
-            return (cos*10-0.5) + (1-abs(sin)-0.5)*10
+            return (cos*10-0.5) + (1-abs(sin)-0.5)*10 
             # is now a row vector !!!
             #return (state[9])*10
     

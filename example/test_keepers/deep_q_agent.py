@@ -25,12 +25,12 @@ tf.reset_default_graph()
 env = LowLevelRandomAgent()
 
 gamma = 0.99 # was 0.99 
-num_episodes = 10000
-update_freq = 5000
+num_episodes = 5000
+update_freq = 1000
 init_steps = 2000
 total_steps = 0
 train_cnt = 0
-C = 20
+C = 2
 losses = []
 
 

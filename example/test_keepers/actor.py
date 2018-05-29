@@ -18,6 +18,10 @@ class Actor:
         self.learning_rate = 0.0001
         self.action_bound = 1
         
+        self.min_bounds = tf.constant([[-100.0, -180.0, -180.0, -180.0]], dtype=tf.float64)
+        self.max_bounds = tf.constant([[100.0, 180.0, 180.0, 180.0]], dtype=tf.float64)
+        
+        
         
         # the input layer for the actor network is a state S
         self.input_layer = tf.placeholder(shape=[None, num_inputs], dtype=tf.float64)
@@ -42,51 +46,50 @@ class Actor:
         self.act_out = tf.layers.dense(inputs = self._layer4, 
                 kernel_initializer = self._kernel_init, units = num_actions)
         
+        # TODO : zeroing gradients
+
         
-        self.act_predict = tf.argmax(sefl.act_out, predict)
         
         # The param_out layer outputs the continious parameters for the discrete action
         self.param_out = tf.layers.dense(inputs = self._layer4, 
                 kernel_initializer = self._kernel_init, units = num_params)
         
-        #TODO : scale the ouput to within the action bounds       
+        #TODO : USE inverting gradients to let the output scale itself
         self.action_gradient = tf.placeholder(shape = [None, num_actions], dtype=tf.float64)
         
         # the variables of the network
         self.network_params = tf.trainable_variables()
         
         #TODO : BELOW CODE MIGHT BE WRONG
-        self.unnormalized_actor_gradients = tf.gradients(
+        self._unnormalized_actor_gradients = tf.gradients(
                     tf.concat([self.act_out, self.param_out], axis = 1), 
                     self.network_params, 
                     -self.action_gradient)
         
-
-        
-  
-        
         # actor gradients  
-        self.actor_gradients = list(map(lambda x: tf.div(x, self.batch_size), 
-                             self.unnormalized_actor_gradients))
+        self._actor_gradients = list(map(lambda x: tf.div(x, self.batch_size), 
+                             self._unnormalized_actor_gradients))
         
         
         
         # calculating the loss for the actor network using the gradients
         self.optimizer = tf.train.AdamOptimizer(self.learning_rate).\
-                apply_gradients(zip(self.actor_gradients, self.network_params))
+                apply_gradients(zip(self._actor_gradients, self.network_params))
         
         
         
         
     def predict(self, inputs):
-        return self.sess.run(self.act_predict, 
+        return self.sess.run([self.act_out, self.param_out], 
                     feed_dict={self.input_layer:inputs})
         
+    def train(self, inputs, gradients):
+        self.sess.run(self.optimizer, feed_dict = {self.input_layer:inputs,
+                        self.action_gradients:gradients})
         
-        
-        
-        
-        
+    def predict_all(self, inputs):
+        return self.sess.run([self.act_predict, self.param_out], 
+                    feed_dict={self.input_layer:inputs})            
         
         
         

@@ -63,5 +63,24 @@ class Agent:
 		       self.logger.log(self.captures)
         return new_state, reward, done
    
+    def step_raw(self, action):    
+        action = tuple(action)
+        self.env.act(*action)
+        status = self.env.step()
+        if status == hfo.SERVER_DOWN:
+            self.env.act(hfo.QUIT)
+            exit()
+        features = self.env.getState()
+        new_state = self.state_space.get_state(features)
+        reward = self.reward_fetcher.reward(features, status)
+        done = not (status == hfo.IN_GAME)
+        if self.logging:
+           if done:
+		       if status == hfo.CAPTURED_BY_DEFENSE:
+		          self.captures+=1.0
+		       self.logger.log(self.captures)
+        return new_state, reward, done
+   
+   
     def __str__(self):
         return "%s using %s" %(self.agent_type, self.action_space)

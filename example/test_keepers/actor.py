@@ -87,11 +87,6 @@ class Actor:
         self.sess.run(self.optimizer, feed_dict = {self.input_layer:inputs,
                         self.action_gradients:gradients})
         
-    def predict_all(self, inputs):
-        return self.sess.run([self.act_predict, self.param_out], 
-                    feed_dict={self.input_layer:inputs})            
-        
-        
         
         
         

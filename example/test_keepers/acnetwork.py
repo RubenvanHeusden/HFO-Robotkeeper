@@ -41,7 +41,9 @@ def run(num_episodes, buf_size):
                                 num_actions=action_space_dim, 
                                 num_params=env.action_space.params)        
         
-        critic = Critic(sess, num_inputs=100, num_outputs=1)
+        critic = Critic(sess, state_size=state_space_dim, 
+                        action_size=action_space_dim, 
+                        param_size=env.action_space.params, num_outputs=1)
 
         # calling the variable initter AFTER the init of the networks
         init = tf.global_variables_initializer()
@@ -75,15 +77,15 @@ def run(num_episodes, buf_size):
                 if total_steps > pre_train_steps:
                     if total_steps % update_freq == 0:
                         
-                        # retrieving batches of axperiences from the memory buffer
+                        # retrieving batches of experiences from the memory buffer
                         update_batch = np.array(exp_buf.get_batch(batch_size)).reshape((batch_size, 5))
                         actor_inputs = np.vstack(update_batch[:, 0])
                         actor_outputs = actor.predict(actor_inputs)
-                        #actor_outputs[0], actor_outputs[1] = tf.convert_to_tensor(actor_outputs[0]), tf.convert_to_tensor(actor_outputs[1])
-                        
-                        #tf.concat((tf.cast(actor_outputs[0], dtype=tf.float64), actor_outputs[1]), axis=1)
-                        
-                
+                        c_actor_outputs = tf.concat((actor_outputs[0], actor_outputs[1]), axis=1)
+                        critic_inputs = tf.concat((actor_inputs, c_actor_outputs), axis=1)
+                        critic_output = critic.predict(critic_inputs.eval())
+                        print critic.get_gradients(critic_inputs.eval(), 
+                        actor_inputs, actor_outputs[0], actor_outputs[1])
                 
                 if done:
                     break

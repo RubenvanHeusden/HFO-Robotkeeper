@@ -22,10 +22,11 @@ import helper
 # of this algorithm
 
 
+    
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('--port', default=6000, type=int)
-  parser.add_argument('--feature_set', default=hfo.HIGH_LEVEL_FEATURE_SET, type=int)
+  parser.add_argument('--feature_set', default=hfo.LOW_LEVEL_FEATURE_SET, type=int)
   parser.add_argument('--trials', default=10000, type=int)
   args = parser.parse_args()
 
@@ -43,9 +44,7 @@ def main():
     while status != hfo.SERVER_DOWN:
         features = env.getState() 
         
-        ball_pos = features[19:22]
-        print ball_pos
-                    
+        print math.degrees(math.asin(features[51]))               
         status = env.step()
         
         

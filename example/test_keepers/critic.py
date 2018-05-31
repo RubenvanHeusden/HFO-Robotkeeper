@@ -20,9 +20,12 @@ class Critic:
         
         
         # input consists of 
-        self.input_layer = tf.placeholder(shape=[None, state_size+action_size+param_size], dtype=tf.float64)
+        self.state_input = tf.placeholder(shape=[None, state_size], dtype=tf.float64)
+        self.action_input = tf.placeholder(shape=[None, action_size], dtype=tf.float64)
+        self.param_input = tf.placeholder(shape=[None, param_size], dtype=tf.float64)
         
-        self.state_input, self.action_input, self.param_input = tf.split(self.input_layer, [state_size, action_size, param_size], 1)
+        self.input_layer = tf.concat((self.state_input, self.action_input, self.param_input), axis=1)
+        
         
         self._layer1 = tf.layers.dense(inputs = self.input_layer, 
                     kernel_initializer = self._kernel_init, 
@@ -52,7 +55,7 @@ class Critic:
         
         self.update_model = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
         
-        self.action_grads = tf.gradients(self.out, self.action_input)
+        self.action_grads = tf.gradients(self.out, [self.action_input, self.param_input])
         
     def predict(self, inputs):
         return self.sess.run(self.out, feed_dict = {self.input_layer:inputs})
@@ -61,9 +64,11 @@ class Critic:
     def train(self):
         pass 
     
-    def get_gradients(self, inputs, state, action, params):
-        return self.sess.run(self.action_input, 
-        feed_dict = {self.input_layer:inputs})
+    def get_gradients(self, state, action, params):
+        return self.sess.run(self.action_grads, 
+        feed_dict = {self.state_input:state, 
+                    self.action_input:action,
+                    self.param_input:params})
         
         
         

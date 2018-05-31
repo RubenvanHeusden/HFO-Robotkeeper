@@ -55,12 +55,12 @@ class Actor:
                 kernel_initializer = self._kernel_init, units = num_params)
         
         #TODO : USE inverting gradients to let the output scale itself
-        self.action_gradient = tf.placeholder(shape = [None, num_actions], dtype=tf.float64)
+        self.action_gradient = tf.placeholder(shape = [None, num_actions+num_params], dtype=tf.float64)
         
         # the variables of the network
         self.network_params = tf.trainable_variables()
         
-        #TODO : BELOW CODE MIGHT BE WRONG
+        #TODO : BELOW CODE MIGHT BE WRONG (-action_gradient)
         self._unnormalized_actor_gradients = tf.gradients(
                     tf.concat([self.act_out, self.param_out], axis = 1), 
                     self.network_params, 
@@ -84,8 +84,8 @@ class Actor:
                     feed_dict={self.input_layer:inputs})
         
     def train(self, inputs, gradients):
-        self.sess.run(self.optimizer, feed_dict = {self.input_layer:inputs,
-                        self.action_gradients:gradients})
+        self.sess.run(self._unnormalized_actor_gradients, feed_dict = {self.input_layer:inputs,
+                        self.action_gradient:gradients})
         
         
         

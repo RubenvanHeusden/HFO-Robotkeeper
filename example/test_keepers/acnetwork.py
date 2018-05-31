@@ -82,10 +82,11 @@ def run(num_episodes, buf_size):
                         actor_inputs = np.vstack(update_batch[:, 0])
                         actor_outputs = actor.predict(actor_inputs)
                         c_actor_outputs = tf.concat((actor_outputs[0], actor_outputs[1]), axis=1)
-                        critic_inputs = tf.concat((actor_inputs, c_actor_outputs), axis=1)
-                        critic_output = critic.predict(critic_inputs.eval())
-                        print critic.get_gradients(critic_inputs.eval(), 
-                        actor_inputs, actor_outputs[0], actor_outputs[1])
+                        #critic_inputs = tf.concat((actor_inputs, c_actor_outputs), axis=1)
+                        #critic_output = critic.predict(critic_inputs.eval())
+                        grads = critic.get_gradients(actor_inputs, actor_outputs[0], actor_outputs[1])
+                        print np.array(grads)
+                        actor.train(actor_inputs, grads)
                 
                 if done:
                     break

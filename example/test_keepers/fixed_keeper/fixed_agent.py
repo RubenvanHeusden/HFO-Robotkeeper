@@ -10,17 +10,6 @@ import tensorflow as tf
 import math
 import matplotlib.pyplot as plt
 
-def updateTargetGraph(tfVars,tau):
-    total_vars = len(tfVars)
-    op_holder = []
-    for idx,var in enumerate(tfVars[0:total_vars//2]):
-        op_holder.append(tfVars[idx+total_vars//2].assign((var.value()*tau) + ((1-tau)*tfVars[idx+total_vars//2].value())))
-    return op_holder
-
-def updateTarget(op_holder,sess):
-    for op in op_holder:
-        sess.run(op)
-
 
 def bin_states(features):
     """ 
@@ -40,7 +29,7 @@ def bin_states(features):
     d_bin =  np.digitize(dist, distance_bins) 
     a_bin = np.digitize(angle, angle_bins)
 
-    return d_bin*num_distances+num_angles
+    return d_bin*num_distances+a_bin
     
 
 def get_reward(state, status):
@@ -54,7 +43,7 @@ def get_reward(state, status):
         
         else:
             
-            return (1-abs(state[51]))*10
+            return int((1-abs(state[51]))*10)
             
 
 
@@ -103,37 +92,75 @@ class NeuralNetwork:
         self.num_outputs =  num_outputs
         
         self.input_layer = tf.placeholder(shape=[None, self.num_inputs],
-                           dtype=tf.float64)
+                           dtype=tf.float64, name="input_layer")
                            
-                           
-        self.layer1 = tf.layers.dense(self.input_layer, 
-                                    kernel_initializer= self._gauss_init,
-                         units=self.layer1_size, activation=tf.nn.relu)
-        
-        self.layer2 = tf.layers.dense(self.layer1, 
-                                    kernel_initializer= self._gauss_init,
-                         units=self.layer2_size, activation=tf.nn.relu)
-        
-        self.layer3 = tf.layers.dense(self.layer2, 
-                                    kernel_initializer= self._gauss_init,
-                         units=self.layer3_size, activation=tf.nn.relu)
-        
-        self.layer4 = tf.layers.dense(self.layer3, 
-                                    kernel_initializer= self._gauss_init,
-                         units=self.layer4_size, activation=tf.nn.relu)
-        
-        self.output_layer = tf.layers.dense(self.layer4, 
-                kernel_initializer= self._gauss_init, units=num_outputs)
-        
-        self.predicted_q_val = tf.argmax(self.output_layer, 1)
-        
-        self.target_q = tf.placeholder(shape=[None, num_outputs], dtype=tf.float64)
-        
-        self.loss = tf.reduce_sum(tf.square(tf.subtract(self.target_q, 
-                                                        self.output_layer)))
+        with tf.name_scope("hidden_layer1"):
+            self.layer1 = tf.contrib.layers.fully_connected(self.input_layer,biases_initializer=None,
+                                        num_outputs = self.layer1_size,
+                                        weights_initializer= self._gauss_init)
+        with tf.variable_scope("fully_connected", reuse=True):        
+            tf.summary.histogram('layer1_weights', tf.get_variable('weights', dtype=tf.float64))
+     
 
-        self.update_model = tf.train.AdamOptimizer(self.learning_rate).\
-        minimize(self.loss)
+            
+                     
+                            
+        with tf.name_scope("hidden_layer2"):
+            self.layer2 = tf.contrib.layers.fully_connected(self.layer1, biases_initializer=None,
+                                        num_outputs = self.layer2_size, 
+                                        weights_initializer= self._gauss_init)
+        with tf.variable_scope("fully_connected_1", reuse=True):        
+            tf.summary.histogram('layer2_weights', tf.get_variable('weights', dtype=tf.float64))
+         
+
+
+ 
+        with tf.name_scope("hidden_layer3"):       
+            self.layer3 = tf.contrib.layers.fully_connected(self.layer2, biases_initializer=None,
+                                        num_outputs = self.layer3_size, 
+                                        weights_initializer= self._gauss_init)
+                                        
+        with tf.variable_scope("fully_connected_2", reuse=True):        
+            tf.summary.histogram('layer3_weights', tf.get_variable('weights', dtype=tf.float64))
+       
+
+        with tf.name_scope("hidden_layer4"):
+            self.layer4 = tf.contrib.layers.fully_connected(self.layer3, biases_initializer=None,
+                                        num_outputs = self.layer4_size,  
+                                        weights_initializer= self._gauss_init)
+                                        
+        with tf.variable_scope("fully_connected_3", reuse=True):        
+            tf.summary.histogram('layer4_weights', tf.get_variable('weights', dtype=tf.float64))
+      
+
+        with tf.name_scope("fully_connected_output_layer"):   
+            self.output_layer = tf.contrib.layers.fully_connected(self.layer4,biases_initializer=None,
+                    num_outputs = num_outputs,  
+                    weights_initializer = self._gauss_init, 
+                    activation_fn=None)
+        tf.summary.histogram('Q_Values', self.output_layer)         
+        with tf.variable_scope("fully_connected_4", reuse=True):        
+            tf.summary.histogram('output_layer_weights', tf.get_variable('weights', dtype=tf.float64))
+            
+
+
+        
+        with tf.name_scope("prediction"):
+            self.predicted_q_val = tf.argmax(self.output_layer, 1)
+        
+        self.target_q = tf.placeholder(shape=[None, num_outputs], 
+        dtype=tf.float64, name="target")
+        
+        with tf.name_scope("loss_function"):
+            self.loss = tf.reduce_sum(tf.square(tf.subtract(self.target_q, 
+                                                        self.output_layer)))
+            tf.summary.scalar('loss', self.loss)
+            
+        with tf.name_scope("train_step"):
+            self.update_model = tf.train.AdamOptimizer(self.learning_rate).\
+            minimize(self.loss)
+        
+
         
         
         
@@ -215,7 +242,7 @@ class Goalie:
         features = self.env.getState()
         s1 = self.state_space.state(features)
         reward = get_reward(features, status)
-        done = not(status == hfo.IN_GAME)
+        done = int(not(status == hfo.IN_GAME))
         
         return s1, reward, done
     
@@ -232,7 +259,7 @@ class FixedGoalieExperiment:
         self.e = 0.1
         self.gamma = 0.99
         self.batch_size = 64
-        self._total_train_eps = 0 
+        self._total_train_eps = 0
         self.num_episodes = num_episodes
         self.update_freq = update_freq
         self.pre_train_stage = pre_train_stage
@@ -240,20 +267,17 @@ class FixedGoalieExperiment:
         self.q_network = NeuralNetwork(self.goalie.state_space.n, 
                                         self.goalie.action_space.n)
 
-        self.q_network2 = NeuralNetwork(self.goalie.state_space.n, 
-                                        self.goalie.action_space.n)
-
-
-        
-        self.trainables = tf.trainable_variables()
-        self.targetOps = updateTargetGraph(self.trainables,0.001)
-        self.C = 3
 
     def run(self):
-        init = tf.global_variables_initializer()
+
         with tf.Session() as sess:
-            sess.run(init)
             exp_buffer = Memory(self.buffer_size)    
+            merged_summary = tf.summary.merge_all()
+            init = tf.global_variables_initializer()
+            sess.run(init)
+            writer = tf.summary.FileWriter("stats/test20")
+            writer.add_graph(sess.graph)
+            
             for x in xrange(self.num_episodes):
                 s = self.goalie.reset()
                 episode_buffer = Memory(100)
@@ -263,7 +287,7 @@ class FixedGoalieExperiment:
                                  self.q_network.output_layer],
                                  feed_dict={self.q_network.input_layer:
                                  s}) 
- 
+
  
                     if np.random.rand(1) < self.e:
                         action[0] = self.goalie.action_space.sample()
@@ -273,21 +297,34 @@ class FixedGoalieExperiment:
                     
                     if self._total_steps > self.pre_train_stage:
                        if self._total_steps % self.update_freq == 0:
-                            if self._total_train_eps % self.C == 0:
-                                updateTarget(self.targetOps,sess)
+                          print "XXXXXXXXXXXXXXXXXXX TRIAINING !!! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                          train_batch = exp_buffer.sample(self.batch_size)
                           
-                            print "XXXXXXXXXXXXXXXXXXX TRIAINING !!! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-                            train_batch = np.array(exp_buffer.sample(self.batch_size)).reshape((self.batch_size, 5))                    
-                            q_vals = sess.run(self.q_network2.output_layer, feed_dict = {self.q_network2.input_layer:np.vstack(train_batch[:, 0])})
-                            _, maxq1 = sess.run([self.q_network2.output_layer, self.q_network2.predicted_q_val], feed_dict = {self.q_network2.input_layer:np.vstack(train_batch[:, 3])})
-                            vals = train_batch[:, 2] + self.gamma*maxq1
-                            target_q = q_vals
-                            for x in range(q_vals.shape[0]):
-                                target_q[x, train_batch[:, 1][x]] = vals[x]
-                    
-                            _, l = sess.run([self.q_network.update_model, self.q_network.loss],feed_dict={self.q_network.input_layer:np.vstack(train_batch[:, 0]), self.q_network.target_q:target_q})            
-                            self.losses.append(l)              
-                            self._total_train_eps+=1
+                          states = np.vstack(np.array([item[0] for item in train_batch]))
+                          best_actions = np.vstack(np.array([item[1] for item in train_batch]))
+                          rewards = np.vstack(np.array([item[2] for item in train_batch]))
+                          next_states = np.vstack(np.array([item[3] for item in train_batch]))
+                          
+                          #train_batch = tf.nn.batch_normalization(tf.convert_to_tensor(train_batch), mean, variance, offset=None, scale=None)
+                             
+                             
+                          maxq1 = sess.run(self.q_network.predicted_q_val, feed_dict = {self.q_network.input_layer:next_states})
+                          vals = rewards + self.gamma*maxq1
+                          target_q = all_q
+                          print vals[0]
+                          for z in range(all_q.shape[0]):
+                              target_q[z, best_actions[z][0]] = vals[z]
+                           
+                          data = sess.run(merged_summary,
+                          feed_dict={self.q_network.input_layer:states, self.q_network.target_q:target_q})  
+                          writer.add_summary(data, self._total_train_eps)
+                                                     
+                          _, l = sess.run([self.q_network.update_model, self.q_network.loss],
+                          feed_dict={self.q_network.input_layer:states, self.q_network.target_q:target_q})       
+
+                          self.losses.append(l)              
+                          
+                          self._total_train_eps+=1
                     if done:
                         self.e = 1./((x/50) + 10)
                         break        
@@ -295,15 +332,12 @@ class FixedGoalieExperiment:
                 
                     self._total_steps+=1
                 for item in episode_buffer:
-                    exp_buffer.add(item)            
+                    exp_buffer.add(item)          
             plt.plot(self.losses)
             plt.show()       
         
-    
-    def log(self):
-        """ something with TensorBoard"""
-        pass 
-       
+   
+
    
         
         
@@ -314,15 +348,13 @@ class FixedGoalieExperiment:
         
         
         
-        
-a = FixedGoalieExperiment(learning_rate=0.1, num_episodes=1000, update_freq=500,
-        pre_train_stage=1000, buffer_size=1000)
-
-a.run()
+def main():
+    FixedGoalieExperiment(learning_rate=0.01, num_episodes=100, update_freq=500,
+        pre_train_stage=1000, buffer_size=1000).run()
 
 
-
-
+if __name__ == "__main__":
+    main()
 
 
 

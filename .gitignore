@@ -83,3 +83,5 @@ soccerwindow2-prefix/
 # Logs
 log/
 bin/log/
+stats/
+

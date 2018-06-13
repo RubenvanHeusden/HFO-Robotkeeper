@@ -11,6 +11,25 @@ import matplotlib.pyplot as plt
 import argparse
 
 
+def updateTargetGraph(tfVars,tau):
+    total_vars = len(tfVars)
+    op_holder = []
+    for idx,var in enumerate(tfVars[0:total_vars//2]):
+        op_holder.append(tfVars[idx+total_vars//2].assign((var.value()*tau) + ((1-tau)*tfVars[idx+total_vars//2].value())))
+    return op_holder
+
+def updateTarget(op_holder,sess):
+    for op in op_holder:
+        sess.run(op)
+
+
+
+def one_hot_vector(size, index):
+    vec = np.zeros((1, size))
+    vec[:, index] = 1
+    return vec
+
+
 
 
 def angle_to_ball(ball_pos, goalie_pos):
@@ -26,6 +45,8 @@ def dist_goalie_to_ball_line(ball, end_point, goalie):
     return np.linalg.norm(np.cross(end_point-ball, ball-goalie))/np.linalg.norm(end_point-ball)
 
 def advanced_reward_func(old_state, new_state):
+    HALF_FIELD_WIDTH = 68 
+    HALF_FIELD_LENGTH = 52.5 
     end_x = -0.83
     old_ball_pos = old_state[3:5]
     ball_pos = new_state[3:5]
@@ -33,54 +54,76 @@ def advanced_reward_func(old_state, new_state):
     x_diff = end_x-ball_pos[0]
     y_diff = gradient*x_diff
     estimate_pos =  (end_x, ball_pos[1]+y_diff)
-    result =  dist_goalie_to_ball_line(ball_pos, estimate_pos, new_state[0:2])
-    return result
+    
+    old_dist =  dist_goalie_to_ball_line(old_ball_pos, estimate_pos, old_state[0:2])
+    new_dist =  dist_goalie_to_ball_line(ball_pos, estimate_pos, new_state[0:2])
+    #print (old_dist-new_dist) * math.sqrt(HALF_FIELD_WIDTH**2 + HALF_FIELD_LENGTH**2)
+    return (old_dist-new_dist) * math.sqrt(HALF_FIELD_WIDTH**2 + HALF_FIELD_LENGTH**2)*100
 
 
 
 
 
 
+def distance_to_ball_y(ball_pos, goalie_pos):
+    return math.sqrt((ball_pos[1] - goalie_pos[1])**2)
 
 
 
-def bin_states(features, num_angles, num_distances):
+def bin_states(features, num_a=10, num_d=10):
+    
+    # angles = 5, distances = 10
     """ 
     params: number of bins, coordinates of point to be binned
     returns: bin in which the point 'pos' lies 
     
     """
     
-    angle_bins = np.array(np.linspace(-90, 90, num=num_angles))
-    distance_bins = np.array(np.linspace(0, 1, num=num_distances))
     
-    dist = features[53]
-    angle = math.degrees(math.asin(features[51]))
+    num_angles = num_a
+    num_distances = num_d 
     
+    angle_bins = np.array(np.linspace(-120, 120, num=num_angles))
+    distance_bins = np.array(np.linspace(0, 130, num=num_distances))
+    
+    dist = distance_to_ball(features[3:5], features[0:2])
+    angle = angle_to_ball(features[3:5], features[0:2])
     d_bin =  np.digitize(dist, distance_bins) 
     a_bin = np.digitize(angle, angle_bins)
+    return a_bin*num_distances+d_bin
+    
+    
+    
+def daan_method(old_state, new_state):
+    old_ball_pos = old_state[3:5]
+    old_player_pos = old_state[0:2]
 
-    return d_bin*num_distances+a_bin
+    ball_pos = new_state[3:5]
+    player_pos = new_state[0:2]
+    
 
+    old_dist = distance_to_ball_y(old_ball_pos, old_player_pos)
+    new_dist = distance_to_ball_y(ball_pos, player_pos)
 
+    return old_dist-new_dist
 
 
 def get_reward(state, status, prev_state=None):
-        #HALF_FIELD_WIDTH = 68 
-        #HALF_FIELD_LENGTH = 52.5 
 
-        #line_dist = advanced_reward_func(prev_state, state) * math.sqrt(HALF_FIELD_WIDTH**2 + HALF_FIELD_LENGTH**2)
+        line_dist = advanced_reward_func(prev_state, state)
         
         if status == hfo.GOAL:
             return -500
             
         elif status == hfo.CAPTURED_BY_DEFENSE:
             return 500
-        elif status == hfo.OUT_OF_BOUNDS:
-            return 250
+            
+        elif status == hfo.OUT_OF_TIME:
+            return -500
         
         else:
         
+            #adding distance to reward !!!
             #print ((((0-abs(state[51]))*10)+1) * (1+state[53]))
             
             
@@ -95,8 +138,8 @@ def get_reward(state, status, prev_state=None):
             #return dist_offset*3+angle
             #dist_weight = (110-angle_to_ball(state[3:5], state[0:2]))/20
             #return 35-abs(angle_to_ball(state[3:5], state[0:2]))*dist_weight
-            print (((0-abs(state[51]))*10)+1)
-            return  (((0-abs(state[51]))*10)+1)
+            #print line_dist
+            return line_dist
 
 class Memory:
     def __init__(self, max_size):
@@ -129,32 +172,34 @@ class NeuralNetwork:
     
     def __init__(self, num_inputs, num_outputs, learning_rate):
     
-        self.layer1_size = 512
-        self.layer2_size = 256
-        self.layer3_size = 128
-        self.layer4_size = 64
+        self.layer1_size = 10
+        self.layer2_size = 10
+        self.layer3_size = 10
+        self.layer4_size = 10
 
         self.learning_rate = learning_rate
         
         self._gauss_init = tf.truncated_normal_initializer(mean=0.0, 
-                                            stddev=0.01, dtype=tf.float64)
+                                            stddev=0.01, dtype=tf.float32)
         
         self.num_inputs = num_inputs
         self.num_outputs =  num_outputs
         
         self.input_layer = tf.placeholder(shape=[None, self.num_inputs],
-                           dtype=tf.float64, name="input_layer")
+                           dtype=tf.float32, name="input_layer")
                            
         with tf.name_scope("hidden_layer1"):
             self.layer1 = tf.contrib.layers.fully_connected(self.input_layer,
                                         num_outputs = self.layer1_size,
-                                        weights_initializer= self._gauss_init)
+                                        weights_initializer=tf.contrib.layers.xavier_initializer())
 
-                            
+        
+        
+                     
         with tf.name_scope("hidden_layer2"):
             self.layer2 = tf.contrib.layers.fully_connected(self.layer1, 
                                         num_outputs = self.layer2_size, 
-                                        weights_initializer= self._gauss_init)
+                                        weights_initializer= tf.contrib.layers.xavier_initializer())
 
          
 
@@ -163,24 +208,22 @@ class NeuralNetwork:
         with tf.name_scope("hidden_layer3"):       
             self.layer3 = tf.contrib.layers.fully_connected(self.layer2, 
                                         num_outputs = self.layer3_size, 
-                                        weights_initializer= self._gauss_init)
+                                        weights_initializer= tf.contrib.layers.xavier_initializer())
                                         
 
-       
 
         with tf.name_scope("hidden_layer4"):
             self.layer4 = tf.contrib.layers.fully_connected(self.layer3, 
                                         num_outputs = self.layer4_size,  
-                                        weights_initializer= self._gauss_init)
+                                        weights_initializer= tf.contrib.layers.xavier_initializer())
                                         
 
-      
+
 
         with tf.name_scope("fully_connected_output_layer"):   
             self.output_layer = tf.contrib.layers.fully_connected(self.layer4,
                     num_outputs = num_outputs,  
-                    weights_initializer = self._gauss_init, 
-                    activation_fn=None)
+                    weights_initializer = tf.contrib.layers.xavier_initializer(),activation_fn=None)
 
             
 
@@ -190,15 +233,18 @@ class NeuralNetwork:
             self.predicted_q_val = tf.argmax(self.output_layer, 1)
         
         self.target_q = tf.placeholder(shape=[None, num_outputs], 
-        dtype=tf.float64, name="target")
+        dtype=tf.float32, name="target")
         
         with tf.name_scope("loss_function"):
+            
             self.loss = tf.reduce_sum(tf.square(tf.subtract(self.target_q, 
                                                         self.output_layer)))
             
         with tf.name_scope("train_step"):
-            self.update_model = tf.train.AdamOptimizer(self.learning_rate).\
-            minimize(self.loss)
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                self.update_model = tf.train.AdamOptimizer(self.learning_rate).\
+                minimize(self.loss)
         
 
         
@@ -218,11 +264,9 @@ class NeuralNetwork:
 
 class ActionSpace:
     def __init__(self):
-    
-        #self._action_list = [(hfo.DASH, i, -90.0) for i in range(0, 120, 20)]+[(hfo.DASH, j, 90.0) for j in range(0, 120, 20)] 
         self._action_list = [(hfo.DASH, 33.3, -90.0), (hfo.DASH, 66.6, -90.0), 
-                    (hfo.DASH, 100.0, -90.0), (hfo.DASH, 30.0, 90.0), 
-                    (hfo.DASH, 66.6, 90.0), (hfo.DASH, 100.0, 90.0)]
+                    (hfo.DASH, 100.0, -90.0), (hfo.DASH, 33.3, 90.0), 
+                    (hfo.DASH, 66.6, 90.0), (hfo.DASH, 100.0, 90.0)] #tuple([hfo.NOOP])]
         
         self.n = len(self._action_list)
         
@@ -248,11 +292,11 @@ class StateSpace:
     def __init__(self, num_angles, num_distances):
         self.n = num_angles*num_distances
         self._num_angles = num_angles
-        self._num_distances=num_distances   
+        self._num_distances = num_distances   
     
     def state(self, features):
         s = bin_states(features, self._num_angles, self._num_distances)
-        return np.identity(self.n)[s:s+1]
+        return s
         
         
         
@@ -262,12 +306,12 @@ class StateSpace:
 class Goalie:
 
     def _connect_to_server(self):
-        self.env.connectToServer(hfo.LOW_LEVEL_FEATURE_SET,
+        self.env.connectToServer(hfo.HIGH_LEVEL_FEATURE_SET,
         '/home/student/Desktop/HFO-master_ruben/bin/teams/base/config/formations-dt', 
         6000, 'localhost', 'base_right', True)
 
     def __init__(self):
-        self.state_space = StateSpace(20, 10)
+        self.state_space = StateSpace(10, 10)
         self.action_space = ActionSpace()
         self.env = hfo.HFOEnvironment()
         self._connect_to_server()
@@ -296,12 +340,13 @@ class FixedGoalieExperiment:
     def __init__(self, learning_rate, num_episodes, update_freq,
         pre_train_stage, buffer_size):
         
+        self.tau = 0.001
         self._total_steps = 0
         self.goalie = Goalie()
         self.learning_rate = learning_rate
         self.e = 0.1
         self.gamma = 0.99
-        self.batch_size = 64
+        self.batch_size = 16
         self._total_train_eps = 0
         self.num_episodes = num_episodes
         self.update_freq = update_freq
@@ -309,7 +354,10 @@ class FixedGoalieExperiment:
         self.buffer_size = buffer_size
         self.q_network = NeuralNetwork(self.goalie.state_space.n, 
                                         self.goalie.action_space.n, self.learning_rate)
-
+                                        
+        self.target_network = NeuralNetwork(self.goalie.state_space.n, 
+                                        self.goalie.action_space.n, self.learning_rate)
+        
 
     def run(self, file_name):
 
@@ -317,38 +365,47 @@ class FixedGoalieExperiment:
             exp_buffer = Memory(self.buffer_size)    
 
             init = tf.global_variables_initializer()
-            sess.run(init)
             saver = tf.train.Saver()
-            
+            trainables = tf.trainable_variables()
+
+            targetOps = updateTargetGraph(trainables,self.tau)
+
+            sess.run(init)
+
             for x in xrange(self.num_episodes):
                 s = self.goalie.reset()
                 done = False
-                for y in xrange(100):
-                    action, all_q = sess.run([self.q_network.predicted_q_val,
-                                 self.q_network.output_layer],
-                                 feed_dict={self.q_network.input_layer:
-                                 s}) 
-
- 
-                    if np.random.rand(1) < self.e:
+                action = [0]
+                for y in xrange(500):
+                
+                                 
+                    if np.random.rand(1) < self.e or  self._total_steps < self.pre_train_stage:
                         action[0] = self.goalie.action_space.sample()          
-                    s1, reward, done = self.goalie.step(action[0])
-                    #exp_buffer.add([s, action[0], reward, s1, done])                   
+                    else:
+                        action, all_q = sess.run([self.q_network.predicted_q_val,
+                                 self.q_network.output_layer],
+                                 feed_dict={self.q_network.input_layer:one_hot_vector(self.goalie.state_space.n, s)}) 
+                    s1, reward, done = self.goalie.step(action[0]) 
+                    exp_buffer.add([s, action[0], reward, s1, done])                   
+                    
                     if self._total_steps >= self.pre_train_stage:
-                        pass
-                        #print exp_buffer.sample(64)
-                          #train_batch = tf.nn.batch_normalization(tf.convert_to_tensor(train_batch), mean, variance, offset=None, scale=None)
+                        if self._total_steps % self.update_freq == 0:
+                            print "TRAINING !!!"
+                            
+                            update_batch = exp_buffer.sample(self.batch_size)
+                            next_states = np.array([one_hot_vector(self.goalie.state_space.n, item[3]) for item in update_batch])
+                            curr_states = np.array([one_hot_vector(self.goalie.state_space.n, item[0]) for item in update_batch])
+                            best_actions = np.array([item[1] for item in update_batch])
+                            rewards = np.array([item[2] for item in update_batch])
                              
-                             
-                    maxq1, all_ = sess.run([self.q_network.predicted_q_val,self.q_network.output_layer], feed_dict = {self.q_network.input_layer:s1})
-                    vals = reward + self.gamma*maxq1
-                    target_q = all_q
-                    target_q[0,action[0]] = reward + self.gamma*maxq1
-
-                    _, l = sess.run([self.q_network.update_model, self.q_network.loss],
-                    feed_dict={self.q_network.input_layer:s, self.q_network.target_q:target_q})       
-
-                    self._total_train_eps+=1
+                            maxq1, all_new_states = sess.run([self.q_network.predicted_q_val,self.q_network.output_layer], feed_dict = {self.q_network.input_layer:np.vstack(next_states)})  
+                            target_q = all_new_states
+                            for row in range(target_q.shape[0]):
+                                target_q[row, best_actions[row]] = rewards[row] + self.gamma*maxq1[row]
+                            _, l = sess.run([self.q_network.update_model, self.q_network.loss],
+                            feed_dict={self.q_network.input_layer:np.vstack(curr_states), self.q_network.target_q:target_q})       
+                            updateTarget(targetOps,sess)
+                            self._total_train_eps+=1
                     if done:
                         self.e = 1./((x/50) + 10)
                         break        
@@ -364,8 +421,7 @@ class FixedGoalieExperiment:
     def test(self, filename):
         saver = tf.train.Saver()
         with tf.Session() as sess:
-            saver = tf.train.import_meta_graph(filename+".meta")
-            saver.restore(sess,tf.train.latest_checkpoint('./'))
+            saver.restore(sess,filename)
 
 
 
@@ -383,7 +439,7 @@ class FixedGoalieExperiment:
                 for y in xrange(200):
                     action, all_ = sess.run([self.q_network.predicted_q_val, self.q_network.output_layer], 
                                  feed_dict={self.q_network.input_layer:
-                                 s}) 
+                                 one_hot_vector(self.goalie.state_space.n, s)}) 
 
  
                     #if np.random.rand(1) < self.e:
@@ -397,8 +453,8 @@ class FixedGoalieExperiment:
         
         
 def main(f_name):
-    obj = FixedGoalieExperiment(learning_rate=0.001, num_episodes=5000, update_freq=500,
-        pre_train_stage=1000, buffer_size=5000)
+    obj = FixedGoalieExperiment(learning_rate=0.001, num_episodes=500, update_freq=100,
+        pre_train_stage=4000, buffer_size=500000)
     
     obj.run(f_name)
     #obj.test(f_name)

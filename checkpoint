@@ -1,2 +1,2 @@
-model_checkpoint_path: "first_q_network_model"
-all_model_checkpoint_paths: "first_q_network_model"
+model_checkpoint_path: "model7_update_in_batches_target_network_fixed_states"
+all_model_checkpoint_paths: "model7_update_in_batches_target_network_fixed_states"

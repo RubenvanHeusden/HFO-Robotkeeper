@@ -1,0 +1,2 @@
+model_checkpoint_path: "model8_test_if_training_works"
+all_model_checkpoint_paths: "model8_test_if_training_works"

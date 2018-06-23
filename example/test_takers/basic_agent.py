@@ -6,19 +6,16 @@ import random
 
 def run(num_episodes):
     env= hfo.HFOEnvironment()
-    r = 0
-
     env.connectToServer(hfo.LOW_LEVEL_FEATURE_SET,
                           '/home/student/Desktop/HFO-master_ruben/bin/teams/base/config/formations-dt', 6000,
-                          'localhost', 'base_left', False)
+                          'localhost', 'base_right', True)
                           
                           
     for episode in xrange(num_episodes): # replace with xrange(5) for Python 2.X
-        kick_angle = random.randint(-8, 8)
         status = hfo.IN_GAME
         while status == hfo.IN_GAME:
             features = env.getState()
-            env.act(hfo.KICK, 100.0, kick_angle)
+            env.act(hfo.DASH, 100.0, -90.0)
             status = env.step()
         print 'Episode', episode, 'ended'
 

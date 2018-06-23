@@ -14,11 +14,11 @@ def run(num_episodes):
                           
                           
     for episode in xrange(num_episodes): # replace with xrange(5) for Python 2.X
-        kick_angle = 0
+        kick_angle = random.randint(-30, 30)
         status = hfo.IN_GAME
         while status == hfo.IN_GAME:
             features = env.getState()
-            env.act(hfo.KICK, 100.0, kick_angle)
+            env.act(hfo.KICK, 40.0, kick_angle)
             status = env.step()
         print 'Episode', episode, 'ended'
 

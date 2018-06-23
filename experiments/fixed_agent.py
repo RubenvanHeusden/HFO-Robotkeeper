@@ -117,7 +117,7 @@ def bin_states(features, num_a=10, num_d=10):
     num_distances = num_d 
     
     angle_bins = np.array(np.linspace(-120, 120, num=num_angles))
-    distance_bins = np.array(np.linspace(0, 30, num=num_distances))
+    distance_bins = np.array(np.linspace(0, 130, num=num_distances))
     
     dist = distance_to_ball(features[3:5], features[0:2])
     angle = angle_to_ball(features[3:5], features[0:2])
@@ -213,9 +213,9 @@ class Memory:
 class NeuralNetwork:
     
     def __init__(self, num_inputs, num_outputs, learning_rate):
-
-        self.layer2_size = 10    
+    
         self.layer1_size = 10
+        self.layer2_size = 10
         self.layer3_size = 10
         self.layer4_size = 10
 
@@ -244,21 +244,21 @@ class NeuralNetwork:
                                         num_outputs = self.layer2_size, 
                                         weights_initializer= tf.contrib.layers.xavier_initializer())
 
-        #with tf.name_scope("hidden_layer3"):       
-        #    self.layer3 = tf.contrib.layers.fully_connected(self.layer2, 
-        #                                num_outputs = self.layer3_size, 
-        #                                weights_initializer= tf.contrib.layers.xavier_initializer())
+        with tf.name_scope("hidden_layer3"):       
+            self.layer3 = tf.contrib.layers.fully_connected(self.layer2, 
+                                        num_outputs = self.layer3_size, 
+                                        weights_initializer= tf.contrib.layers.xavier_initializer())
                                         
 
-        #with tf.name_scope("hidden_layer4"):       
-        #    self.layer4 = tf.contrib.layers.fully_connected(self.layer3, 
-        #                                num_outputs = self.layer4_size, 
-        #                                weights_initializer= tf.contrib.layers.xavier_initializer())
+        with tf.name_scope("hidden_layer4"):       
+            self.layer4 = tf.contrib.layers.fully_connected(self.layer3, 
+                                        num_outputs = self.layer4_size, 
+                                        weights_initializer= tf.contrib.layers.xavier_initializer())
                                         
                                         
 
         with tf.name_scope("fully_connected_output_layer"):   
-            self.output_layer = tf.contrib.layers.fully_connected(self.layer2,
+            self.output_layer = tf.contrib.layers.fully_connected(self.layer4,
                     num_outputs = num_outputs,  
                     weights_initializer = tf.contrib.layers.xavier_initializer(),activation_fn=None)
 
@@ -349,7 +349,7 @@ class Goalie:
         6000, 'localhost', 'base_right', True)
 
     def __init__(self):
-        self.state_space = StateSpace(5, 5)
+        self.state_space = StateSpace(10, 10)
         self.action_space = ActionSpace()
         self.env = hfo.HFOEnvironment()
         self._connect_to_server()
@@ -369,6 +369,7 @@ class Goalie:
         s1 = self.state_space.state(features)
         reward = get_reward(features, status, old_state)
         done = int(not(status == hfo.IN_GAME))
+        
         return s1, reward, done, (status == hfo.GOAL)
     
         
@@ -406,16 +407,15 @@ class FixedGoalieExperiment:
             trainables = tf.trainable_variables()
 
             targetOps = updateTargetGraph(trainables,self.tau)
+
             sess.run(init)
-            r_list = []
             captures = 0
             for x in xrange(self.num_episodes):
                 s = self.goalie.reset()
                 done = False
                 action = [0]
-                r_total = 0
                 for y in xrange(500):
-                    
+                
                                  
                     if np.random.rand(1) < self.e or  self._total_steps < self.pre_train_stage:
                         action[0] = self.goalie.action_space.sample()          
@@ -424,7 +424,6 @@ class FixedGoalieExperiment:
                                  self.q_network.output_layer],
                                  feed_dict={self.q_network.input_layer:one_hot_vector(self.goalie.state_space.n, s)}) 
                     s1, reward, done, goal = self.goalie.step(action[0]) 
-                    r_total+=reward
                     exp_buffer.add([s, action[0], reward, s1, done])                   
                     
                     if self._total_steps >= self.pre_train_stage:
@@ -441,10 +440,8 @@ class FixedGoalieExperiment:
                             target_q = all_new_states
                             for row in range(target_q.shape[0]):
                                 target_q[row, best_actions[row]] = rewards[row] + self.gamma*maxq1[row]
-                                
-                            _ = sess.run(self.q_network.update_model,
-                            feed_dict={self.q_network.input_layer:np.vstack(curr_states), self.q_network.target_q:target_q}) 
-                            
+                            _, l = sess.run([self.q_network.update_model, self.q_network.loss],
+                            feed_dict={self.q_network.input_layer:np.vstack(curr_states), self.q_network.target_q:target_q})       
                             updateTarget(targetOps,sess)
                             self._total_train_eps+=1
                     self._total_steps+=1 
@@ -453,28 +450,18 @@ class FixedGoalieExperiment:
                             captures = 0
                         else:
                             captures+=1
-                            if captures == 30:
-                                with open('final_test/score.txt', 'w') as f_obj:
-                                    f_obj.write(str(r_list))
-                                saver.save(sess, file_name)   
-                                with open('final_test/trials.txt', 'a') as f:
-                                    f.write(str([x, file_name])+"\n")     
-                                    plt.plot(r_list) 
-                                    plt.show()                      
+                            if captures == 100:
+                                saver.save(sess, file_name)                               
                                 print "perfect agent !!!"
                                 sys.exit()
                         self.e = 1./((x/50) + 10)
                         break        
-                    
                     s = s1
-                r_list.append(r_total)
+                
    
                     
             saver.save(sess, file_name)
-            with open('final_test/score.txt', 'w') as f_obj:
-                f_obj.write(str(r_list))
-            plt.plot(r_list)
-            plt.show()
+            
         
         
     
@@ -517,14 +504,11 @@ class FixedGoalieExperiment:
             exp_buffer = Memory(self.buffer_size)    
             trainables = tf.trainable_variables()
             targetOps = updateTargetGraph(trainables,self.tau)
-            r_list = []                        
 
-            captures = 0
             for x in xrange(self.num_episodes):
                 s = self.goalie.reset()
                 done = False
-                action = [0]
-                r_total = 0  
+                action = [0]  
                 for y in xrange(500):
                 
                     if np.random.rand(1) < self.e : #or self._total_steps < self.pre_train_stage
@@ -532,8 +516,7 @@ class FixedGoalieExperiment:
                     else:
                         action, all_q = sess.run([self.q_network.predicted_q_val,self.q_network.output_layer],
                                  feed_dict={self.q_network.input_layer:one_hot_vector(self.goalie.state_space.n, s)}) 
-                    s1, reward, done, goal = self.goalie.step(action[0]) 
-                    r_total+=reward
+                    s1, reward, done, _ = self.goalie.step(action[0]) 
                     exp_buffer.add([s, action[0], reward, s1, done])                   
                     if self._total_steps >= self.pre_train_stage:
                         if self._total_steps % self.update_freq == 0:
@@ -555,41 +538,25 @@ class FixedGoalieExperiment:
                             self._total_train_eps+=1
                     self._total_steps+=1 
                     if done:
-                    
-                        if goal:
-                            captures = 0
-                        else:
-                            captures+=1
-                            if captures == 25 and self._total_steps > self.pre_train_stage:
-                                saver.save(sess, f_name_new)
-                                plt.plot(r_list)
-                                plt.show()    
-                                with open('official/trials.txt', 'a') as f:
-                                    f.write(str([x, f_name_new])+"\n")                            
-                                print "perfect agent !!!"
-                                sys.exit()
                         # changed e !
                         self.e = 1./((x/50) + 10)
                         break        
                     s = s1
-                    r_list.append(r_total)     
+                                    
 
                     
             saver.save(sess, f_name_new)                
-            
-            
-            plt.plot(r_list)
-            plt.show()    
+    
 
 
         
 def main(f_name, num_trials):
-    obj = FixedGoalieExperiment(learning_rate=0.1, num_episodes=num_trials, update_freq=50,
+    obj = FixedGoalieExperiment(learning_rate=0.0001, num_episodes=num_trials, update_freq=200,
         pre_train_stage=4000, buffer_size=500000)
     
     obj.run(f_name)
     #obj.test(f_name)
-    #obj.load_model(f_name, f_name+"_new")
+    #obj.load_model(f_name, f_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

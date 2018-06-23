@@ -1,2 +1,2 @@
-model_checkpoint_path: "model17_3_hidden_layers"
-all_model_checkpoint_paths: "model17_3_hidden_layers"
+model_checkpoint_path: "model50_real_distance"
+all_model_checkpoint_paths: "model50_real_distance"
